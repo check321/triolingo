@@ -1,11 +1,15 @@
 import gradio as gr
 
 from agents.conversation_agent import ConversationAgent
-from agents.house_agent import HouseAgent
+from agents.base_senario_agent import ScennarioAgent
 from utils.logger import LOG
 
 conversation_agent = ConversationAgent()
-house_agent = HouseAgent()
+# house_agent = HouseAgent()
+
+agents = {
+    "house_renting": ScennarioAgent("house_renting"),
+}
 
 def handle_conversation(user_input, chat_history):
     LOG.debug(f"[Histories]: {chat_history}")
@@ -14,14 +18,19 @@ def handle_conversation(user_input, chat_history):
     return bot_message
 
 def get_scenario_intro(scenario):
-    with open(f"content/{scenario}_page.md","r") as f:
+    with open(f"content/page/{scenario}_page.md","r") as f:
         scenario_intro = f.read().strip()
     return scenario_intro
 
+def start_new_senario(scenario):
+    init_ai_message = agents[scenario].start_new_session(session_id=None)
+    
+    return gr.Chatbot(
+        value=[(None,init_ai_message)]
+        ,height=600
+    )
+
 def handle_scenario(user_input,chat_history,scenario):
-    agents = {
-        "house_renting": house_agent,
-    }
     bot_message = agents[scenario].chat_with_history(user_input)
     return bot_message
 
@@ -53,13 +62,13 @@ with gr.Blocks(title="TrioLingo") as triolingo_app:
         )
         
         scenario_intro = gr.Markdown()
-        
-        scenario.change(fn=get_scenario_intro,inputs=scenario,outputs=scenario_intro)
-        
         scenario_chatbot = gr.Chatbot(
             placeholder="Select a scenario and let's start!",
             height=600,
         )
+        
+        scenario.change(
+            fn=lambda s: (get_scenario_intro(s),start_new_senario(s)),inputs=scenario,outputs=[scenario_intro,scenario_chatbot])
         
         gr.ChatInterface(
             chatbot=scenario_chatbot,
